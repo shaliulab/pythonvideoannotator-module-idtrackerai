@@ -36,12 +36,19 @@ class IdTrackerProject(object):
 
             if os.path.exists(blobs_path) and os.path.exists(vidobj_path):
 
+                # this recreates the idtrackerai.video.Video object
+                # it is used
+                # * to learn where multiple files were used
+                # * in the call to load_from_idtrackerai (which returns a IdtrackeraiObject object)
                 idtracker_videoobj = np.load(vidobj_path, allow_pickle=True).item()
 
+                # this produces a pythonvideoannotator_models_gui.models.video.Video object
+                # it is used to render the video in pythonvideoannotator
                 video = self.create_video()
                 video.multiple_files = idtracker_videoobj.open_multiple_files
                 video.filepath = os.path.join( project_path, '..', os.path.basename( idtracker_videoobj._video_path) )
 
+                # this produces a pythonvideoannotator_module_idtrackerai.models.video.objects.idtrackerai_object.IdtrackeraiObject object
                 obj = video.create_idtrackerai_object()
                 obj.load_from_idtrackerai(project_path, idtracker_videoobj)
 
