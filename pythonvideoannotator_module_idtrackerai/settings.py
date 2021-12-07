@@ -16,3 +16,5 @@ IDTRACKERAI_SHORT_KEYS= {
     'Check/Uncheck add blob.':                  'Ctrl+B',
     'Delete centroid.':                         'Ctrl+D'
 }
+
+RECONNECT_BLOBS_FROM_CACHE = False

@@ -26,6 +26,8 @@ from idtrackerai.groundtruth_utils.compute_groundtruth_statistics_general import
     compute_and_save_session_accuracy_wrt_groundtruth,
 )
 
+from idtrackerai.list_of_blobs import ListOfBlobs
+
 logger = logging.getLogger(__name__)
 
 
@@ -147,10 +149,14 @@ class IdtrackeraiObjectIO(object):
             )
 
         logger.info("Loading list of blobs...")
-        self.list_of_blobs = np.load(path, allow_pickle=True).item()
+        self.list_of_blobs = ListOfBlobs.load(path)
         logger.info("List of blobs loaded")
         logger.info("Connecting list of blobs...")
-        self.list_of_blobs.compute_overlapping_between_subsequent_frames()
+        if not conf.RECONNECT_BLOBS_FROM_CACHE:
+            self.list_of_blobs.compute_overlapping_between_subsequent_frames()
+        else:
+            self.list_of_blobs.reconnect_from_cache()
+
         logger.info("List of blobs connected")
         logger.info("Loading fragments...")
         path = os.path.join(project_path, "preprocessing", "fragments.npy")
