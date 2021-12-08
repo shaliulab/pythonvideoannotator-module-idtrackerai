@@ -28,6 +28,7 @@ class IdtrackeraiObjectMouseEvents(object):
         self._tmp_object_pos = None # used to store the temporary object position on drag
         self.selected        = None # Store information about the the selected blob.
         self._drag_active = True
+        self._history = []
 
 
     def on_click(self, event, x, y):
@@ -95,6 +96,10 @@ class IdtrackeraiObjectMouseEvents(object):
             self._add_centroidchk.value = False
 
 
+    def _update_history(self, identity, new_blob_identity_centroid):
+        import ipdb; ipdb.set_trace()
+        return
+
 
     def on_double_click(self, event, x, y):
 
@@ -120,6 +125,9 @@ class IdtrackeraiObjectMouseEvents(object):
                 try:
                     blob.update_identity(identity, new_blob_identity, centroid)
                     blob.propagate_identity(identity, new_blob_identity, centroid)
+                    self._update_history(identity, new_blob_identity, centroid)
+                    # log this to a csv file
+
                 except Exception as e:
                     logger.debug(str(e), exc_info=True)
                     self.warning(str(e), 'Error')
@@ -134,6 +142,8 @@ class IdtrackeraiObjectMouseEvents(object):
                 try:
                     self.list_of_blobs.add_blob(self.video_object, frame_index,
                                                 (x, y), new_blob_identity)
+                    # log this to a csv file
+                    self._update_history(None, new_blob_identity, (x, y))
                 except Exception as e:
                     logger.debug(str(e), exc_info=True)
                     self.warning(str(e), 'Error')
