@@ -1,4 +1,8 @@
+import os.path
 import math, logging
+from collections import namedtuple
+
+Modification = namedtuple("Modification", "session_folder frame_number in_frame_index identity new_blob_identity x y")
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +26,7 @@ class SelectedBlob(object):
 class IdtrackeraiObjectMouseEvents(object):
 
     RADIUS_TO_SELECT_BLOB = 10
+    HISTORY_PATH = "python-video-annotator-human_mods.csv"
 
     def __init__(self):
 
@@ -31,7 +36,6 @@ class IdtrackeraiObjectMouseEvents(object):
         self.selected = None  # Store information about the the selected blob.
         self._drag_active = True
         self._history = []
-        self._history_path = "python-video-annotator-human_mods.csv"
 
     def on_click(self, event, x, y):
         """
@@ -103,25 +107,26 @@ class IdtrackeraiObjectMouseEvents(object):
 
     def _save_history(self):
 
-        with open(self._history_path, "w") as fh:
+        with open(self.HISTORY_PATH, "w") as fh:
 
             fh.write(
-                "frame_number,in_frame_index,identity,new_identity,centroid\n"
+                "frame_number,in_frame_index,identity,new_blob_identity,x,y\n"
             )
             for row in self._history:
-                data = ",".join(
-                    [str(element).replace(",", ";") for element in row]
-                )
-                fh.write(f"{data}\n")
+
+                fh.write(f"{row.session_folder},{row.frame_number},{row.in_frame_index},"\
+                         f"{row.identity},{row.new_blob_identity},"\
+                         f"{row.x},{row.y}\n")
 
     def _update_history(self, blob, identity, new_blob_identity, centroid):
         self._history.append(
-            (
+            Modification(
+                os.path.basename(self.video_object._session_folder),
                 blob.frame_number,
                 blob.in_frame_index,
                 identity,
                 new_blob_identity,
-                centroid,
+                *centroid,
             )
         )
         self._save_history()
