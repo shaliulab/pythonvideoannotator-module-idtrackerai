@@ -2,21 +2,21 @@ import math, logging
 
 logger = logging.getLogger(__name__)
 
+
 class SelectedBlob(object):
     """
     Class to store information about the selected blob.
     """
+
     def __init__(self, blob, blob_id, blob_pos):
         """
         :param int blob: Blob object.
         :param int blob_id: Id of the blob object.
         :param int blob_pos: Blob position.
         """
-        self.blob     = blob
+        self.blob = blob
         self.position = blob_pos[0], blob_pos[1]
         self.identity = blob_id
-
-
 
 
 class IdtrackeraiObjectMouseEvents(object):
@@ -25,11 +25,13 @@ class IdtrackeraiObjectMouseEvents(object):
 
     def __init__(self):
 
-        self._tmp_object_pos = None # used to store the temporary object position on drag
-        self.selected        = None # Store information about the the selected blob.
+        self._tmp_object_pos = (
+            None  # used to store the temporary object position on drag
+        )
+        self.selected = None  # Store information about the the selected blob.
         self._drag_active = True
         self._history = []
-
+        self._history_path = "python-video-annotator-human_mods.csv"
 
     def on_click(self, event, x, y):
         """
@@ -44,8 +46,7 @@ class IdtrackeraiObjectMouseEvents(object):
 
             selected = False
 
-            p0          = x, y
-
+            p0 = x, y
 
             # no blobs to select, exit the function
             if not self.list_of_blobs.blobs_in_video[frame_index]:
@@ -57,10 +58,15 @@ class IdtrackeraiObjectMouseEvents(object):
 
             for blob in blobs:
 
-                for identity, p1 in zip(blob.final_identities, blob.final_centroids_full_resolution):
+                for identity, p1 in zip(
+                    blob.final_identities, blob.final_centroids_full_resolution
+                ):
 
                     # check if which blob was selected
-                    if math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)<self.RADIUS_TO_SELECT_BLOB:
+                    if (
+                        math.sqrt((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2)
+                        < self.RADIUS_TO_SELECT_BLOB
+                    ):
 
                         self.mainwindow.player.stop()
 
@@ -75,17 +81,17 @@ class IdtrackeraiObjectMouseEvents(object):
 
             # ask the new blob identity
             identity = self.input_int(
-                'Type in the centroid identity',
-                title='Identity',
-                default=1
+                "Type in the centroid identity", title="Identity", default=1
             )
 
-            if not( identity in ['', None]):
+            if not (identity in ["", None]):
                 try:
-                    self.selected.blob.add_centroid(self.video_object, (x,y), identity )
+                    self.selected.blob.add_centroid(
+                        self.video_object, (x, y), identity
+                    )
                 except Exception as e:
                     logger.debug(str(e), exc_info=True)
-                    self.warning(str(e), 'Error')
+                    self.warning(str(e), "Error")
 
             self._add_centroidchk.value = False
             self._tmp_object_pos = None
@@ -95,74 +101,107 @@ class IdtrackeraiObjectMouseEvents(object):
             self.selected = None
             self._add_centroidchk.value = False
 
+    def _save_history(self):
 
-    def _update_history(self, identity, new_blob_identity_centroid):
-        import ipdb; ipdb.set_trace()
+        with open(self._history_path, "w") as fh:
+
+            fh.write(
+                "frame_number,in_frame_index,identity,new_identity,centroid\n"
+            )
+            for row in self._history:
+                data = ",".join(
+                    [str(element).replace(",", ";") for element in row]
+                )
+                fh.write(f"{data}\n")
+
+    def _update_history(self, blob, identity, new_blob_identity, centroid):
+        self._history.append(
+            (
+                blob.frame_number,
+                blob.in_frame_index,
+                identity,
+                new_blob_identity,
+                centroid,
+            )
+        )
+        self._save_history()
         return
-
 
     def on_double_click(self, event, x, y):
 
-        p0          = x, y
+        p0 = x, y
         frame_index = self.mainwindow.timeline.value
 
         # if one object is selected
         if self.selected is not None:
 
             identity = self.selected.identity
-            blob     = self.selected.blob
+            blob = self.selected.blob
             centroid = self.selected.position
 
             # ask the new blob identity
             new_blob_identity = self.input_int(
-                'Type in the new identity',
-                title='New identity',
-                default=identity if identity is not None else 0
+                "Type in the new identity",
+                title="New identity",
+                default=identity if identity is not None else 0,
             )
 
             # Update only if the new identity is different from the old one.
             if new_blob_identity is not None:
                 try:
                     blob.update_identity(identity, new_blob_identity, centroid)
-                    blob.propagate_identity(identity, new_blob_identity, centroid)
-                    self._update_history(identity, new_blob_identity, centroid)
+                    blob.propagate_identity(
+                        identity, new_blob_identity, centroid
+                    )
+                    self._update_history(
+                        blob, identity, new_blob_identity, centroid
+                    )
                     # log this to a csv file
 
                 except Exception as e:
                     logger.debug(str(e), exc_info=True)
-                    self.warning(str(e), 'Error')
+                    self.warning(str(e), "Error")
 
         elif self._add_blobchk.value:
             new_blob_identity = self.input_int(
-                'Type the identity for the new blob',
-                title='New identity',
-                default=0
+                "Type the identity for the new blob",
+                title="New identity",
+                default=0,
             )
-            if not( new_blob_identity in ['', None]):
+            if not (new_blob_identity in ["", None]):
                 try:
-                    self.list_of_blobs.add_blob(self.video_object, frame_index,
-                                                (x, y), new_blob_identity)
+                    blob = self.list_of_blobs.add_blob(
+                        self.video_object,
+                        frame_index,
+                        (x, y),
+                        new_blob_identity,
+                    )
                     # log this to a csv file
-                    self._update_history(None, new_blob_identity, (x, y))
+                    self._update_history(blob, None, new_blob_identity, (x, y))
                 except Exception as e:
                     logger.debug(str(e), exc_info=True)
-                    self.warning(str(e), 'Error')
-
+                    self.warning(str(e), "Error")
 
     def on_drag(self, p1, p2):
 
-        if self.selected and \
-           self.selected.identity and \
-           math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)>5:
+        if (
+            self.selected
+            and self.selected.identity
+            and math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) > 5
+        ):
 
-            self._tmp_object_pos = int(round(p2[0],0)), int(round(p2[1],0))
-
+            self._tmp_object_pos = int(round(p2[0], 0)), int(round(p2[1], 0))
 
     def on_end_drag(self, p1, p2):
 
         if self._tmp_object_pos and self.selected and self.selected.blob:
 
-            self.selected.blob.update_centroid(self.video_object, self.selected.position, p2, self.selected.identity)
+            self.selected.blob.update_centroid(
+                self.video_object,
+                self.selected.position,
+                p2,
+                self.selected.identity,
+            )
             self.selected.position = p2
 
         self._tmp_object_pos = None
