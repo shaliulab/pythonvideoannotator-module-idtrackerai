@@ -70,6 +70,9 @@ class IdtrackeraiObject(
         self._add_centroidchk = ControlCheckBox(
             "Add centroid to selected blob", default=False, visible=False
         )
+        self._propagate_direction = ControlText(
+            "Propagation direction", default="all", visible=False
+        )
         self._add_blobchk = ControlCheckBox(
             "Add blob", default=False, visible=False
         )
@@ -123,6 +126,7 @@ class IdtrackeraiObject(
             "_add_centroidchk",
             "_del_centroids_btn",
             "_add_blobchk",
+            "_propagate_direction",
             "_reset_btn",
             "_closepaths_btn",
             "_save_btn",
@@ -657,11 +661,13 @@ class IdtrackeraiObject(
             self._del_centroids_btn.hide()
             self._add_centroidchk.hide()
             self._add_blobchk.show()
+            self._propagate_direction.hide()
             self._reset_btn.label = self.RESET_BTN_LABEL
             self._closepaths_btn.label = self.INTERPOLATE_BTN_LABEL
         else:
             self._add_centroidchk.show()
             self._add_blobchk.hide()
+            self._propagate_direction.show()
             self._reset_btn.label = self.RESET_BTN_LABEL_FOR_ID.format(
                 self.selected.identity
             )

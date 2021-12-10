@@ -149,10 +149,16 @@ class IdtrackeraiObjectMouseEvents(object):
             # Update only if the new identity is different from the old one.
             if new_blob_identity is not None:
                 try:
+
                     blob.update_identity(identity, new_blob_identity, centroid)
-                    blob.propagate_identity(
-                        identity, new_blob_identity, centroid
-                    )
+                    direction = self._propagate_direction.value
+                    if direction in ["all", "future", "past"]:
+                        blob.propagate_identity(
+                            identity, new_blob_identity, centroid, direction=direction
+                        )
+                    else:
+                        logger.warning("Please pass a supported direction. Either all, future, or past")
+
                     self._update_history(
                         blob, identity, new_blob_identity, centroid
                     )
