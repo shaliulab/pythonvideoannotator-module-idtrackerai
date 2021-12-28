@@ -40,8 +40,17 @@ class IdTrackerProject(object):
 
                 video = self.create_video()
                 video.multiple_files = idtracker_videoobj.open_multiple_files
-                video.filepath = os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
-
+                
+                video_path = os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
+                imgstore_path = os.path.join(project_path, "..", "..", "metadata.yaml")
+                if os.path.exists(video_path):
+                    video.filepath_setter(video_path)
+                elif os.path.exists(imgstore_path):
+                    chunk_numbers = idtracker_videoobj._chunk_numbers
+                    video.filepath_setter(imgstore_path, chunk_numbers=chunk_numbers)
+                else:
+                    raise Exception("Video not found")
+    
                 obj = video.create_idtrackerai_object()
                 obj.load_from_idtrackerai(project_path, idtracker_videoobj)
 
