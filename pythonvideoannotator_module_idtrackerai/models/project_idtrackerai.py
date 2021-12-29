@@ -47,7 +47,11 @@ class IdTrackerProject(object):
                     video.filepath_setter(video_path)
                 elif os.path.exists(imgstore_path):
                     chunk_numbers = idtracker_videoobj._chunk_numbers
-                    video.filepath_setter(imgstore_path, chunk_numbers=chunk_numbers)
+                    video.filepath_setter(
+                        imgstore_path,
+                        ref_chunk=idtracker_videoobj._chunk,
+                        chunk_numbers=chunk_numbers
+                    )
                 else:
                     raise Exception("Video not found")
     
