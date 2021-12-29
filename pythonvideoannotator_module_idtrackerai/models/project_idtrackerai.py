@@ -1,4 +1,7 @@
 import os, numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class IdTrackerProject(object):
@@ -40,7 +43,7 @@ class IdTrackerProject(object):
 
                 video = self.create_video()
                 video.multiple_files = idtracker_videoobj.open_multiple_files
-                
+
                 video_path = os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
                 imgstore_path = os.path.join(project_path, "..", "..", "metadata.yaml")
                 if os.path.exists(video_path):
@@ -54,7 +57,7 @@ class IdTrackerProject(object):
                     )
                 else:
                     raise Exception("Video not found")
-    
+
                 obj = video.create_idtrackerai_object()
                 obj.load_from_idtrackerai(project_path, idtracker_videoobj)
 
@@ -62,5 +65,8 @@ class IdTrackerProject(object):
                 video.treenode.setExpanded(True)
                 obj.treenode.setSelected(True)
 
-                self.mainwindow.player.video_index = obj.get_first_frame()
+                first_frame = obj.get_first_frame()
+                logger.warning(f"First frame: {first_frame}")
+                import ipdb; ipdb.set_trace()
+                self.mainwindow.player.video_index = first_frame
                 self.mainwindow.player.call_next_frame()
