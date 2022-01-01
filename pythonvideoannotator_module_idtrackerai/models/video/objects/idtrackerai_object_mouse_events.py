@@ -1,7 +1,7 @@
 import os.path
-import math, logging
+import math, logging, traceback
 from collections import namedtuple
-
+import itertools
 Modification = namedtuple("Modification", "session_folder frame_number in_frame_index identity new_blob_identity x y")
 
 logger = logging.getLogger(__name__)
@@ -36,6 +36,18 @@ class IdtrackeraiObjectMouseEvents(object):
         self.selected = None  # Store information about the the selected blob.
         self._drag_active = True
         self._history = []
+        # if getattr(self.video_object, "_store", False):
+        #     self._blobs_in_video = self._interpolate_blobs()
+        
+        # else:
+        #     self._blobs_in_video = self.list_of_blobs.blobs_in_video
+    
+
+    def get_frame_number(self, blob):
+        if getattr(self.video_object, "_store", False):
+            frame_number = blob.frame_number + len(self._previous_frames)
+        else:
+            frame_number = blob.frame_number
 
     def on_click(self, event, x, y):
         """
@@ -45,65 +57,77 @@ class IdtrackeraiObjectMouseEvents(object):
         :param int y: Y coordinate.
         """
 
-        frame_index = self.mainwindow.timeline.value
-        if not self._add_centroidchk.value:
+        try:
 
-            selected = False
+            frame_index = self.mainwindow.timeline.value
 
-            p0 = x, y
+            if not self._add_centroidchk.value:
 
-            # no blobs to select, exit the function
-            if not self.list_of_blobs.blobs_in_video[frame_index]:
-                self.selected = None
-                return
+                selected = False
 
-            # blobs in the current frame
-            blobs = self.list_of_blobs.blobs_in_video[frame_index]
+                p0 = x, y
 
-            for blob in blobs:
+                # no blobs to select, exit the function
+                if not self.list_of_blobs.blobs_in_video[frame_index]:
+                    self.selected = None
+                    return
 
-                for identity, p1 in zip(
-                    blob.final_identities, blob.final_centroids_full_resolution
-                ):
+                # blobs in the current frame
+                blobs = self.list_of_blobs.blobs_in_video[frame_index]
 
-                    # check if which blob was selected
-                    if (
-                        math.sqrt((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2)
-                        < self.RADIUS_TO_SELECT_BLOB
+                for blob in blobs:
+
+                    for identity, p1 in zip(
+                        blob.final_identities, blob.final_centroids_full_resolution
                     ):
 
-                        self.mainwindow.player.stop()
+                        # check if which blob was selected
+                        if (
+                            math.sqrt((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2)
+                            < self.RADIUS_TO_SELECT_BLOB
+                        ):
 
-                        self.selected = SelectedBlob(blob, identity, p1)
-                        selected = True
-                        break
+                            self.mainwindow.player.stop()
 
-            if not selected:
-                self.selected = None
+                            self.selected = SelectedBlob(blob, identity, p1)
+                            selected = True
+                            break
 
-        elif self.selected and self.selected.blob.frame_number == frame_index:
+                if not selected:
+                    self.selected = None
 
-            # ask the new blob identity
-            identity = self.input_int(
-                "Type in the centroid identity", title="Identity", default=1
-            )
+            elif self.selected:
 
-            if not (identity in ["", None]):
-                try:
-                    self.selected.blob.add_centroid(
-                        self.video_object, (x, y), identity
+                frame_number = self.get_frame_number(self.selected.blob)
+                
+                if frame_number == frame_index:
+
+                    # ask the new blob identity
+                    identity = self.input_int(
+                        "Type in the centroid identity", title="Identity", default=1
                     )
-                except Exception as e:
-                    logger.debug(str(e), exc_info=True)
-                    self.warning(str(e), "Error")
 
-            self._add_centroidchk.value = False
-            self._tmp_object_pos = None
-            self._drag_active = False
+                    if not (identity in ["", None]):
+                        try:
+                            self.selected.blob.add_centroid(
+                                self.video_object, (x, y), identity
+                            )
+                        except Exception as e:
+                            logger.debug(str(e), exc_info=True)
+                            self.warning(str(e), "Error")
 
-        elif self.selected and self.selected.blob.frame_number != frame_index:
-            self.selected = None
-            self._add_centroidchk.value = False
+                    self._add_centroidchk.value = False
+                    self._tmp_object_pos = None
+                    self._drag_active = False
+
+                elif frame_number != frame_index:
+                    self.selected = None
+                    self._add_centroidchk.value = False
+        
+        except Exception as error:
+            logger.error(error)
+            logger.error(traceback.print_exc())
+        
 
     def _save_history(self):
 
@@ -114,7 +138,7 @@ class IdtrackeraiObjectMouseEvents(object):
             )
             for row in self._history:
 
-                fh.write(f"{row.session_folder},{row.frame_number},{row.in_frame_index},"\
+                fh.write(f"{row.session_folder},{row.frame_number_generic},{row.in_frame_index},"\
                          f"{row.identity},{row.new_blob_identity},"\
                          f"{row.x},{row.y}\n")
 
@@ -122,7 +146,7 @@ class IdtrackeraiObjectMouseEvents(object):
         self._history.append(
             Modification(
                 os.path.basename(self.video_object._session_folder),
-                blob.frame_number,
+                blob.frame_number_generic,
                 blob.in_frame_index,
                 identity,
                 new_blob_identity,

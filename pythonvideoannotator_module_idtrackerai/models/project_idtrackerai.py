@@ -67,6 +67,5 @@ class IdTrackerProject(object):
 
                 first_frame = obj.get_first_frame()
                 logger.warning(f"First frame: {first_frame}")
-                import ipdb; ipdb.set_trace()
                 self.mainwindow.player.video_index = first_frame
                 self.mainwindow.player.call_next_frame()

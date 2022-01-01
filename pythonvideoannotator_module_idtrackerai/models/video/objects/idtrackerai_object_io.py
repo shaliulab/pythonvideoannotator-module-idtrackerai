@@ -1,5 +1,5 @@
 import time, copy, numpy as np, os, logging
-
+import pandas as pd
 from confapp import conf
 
 try:
@@ -150,14 +150,15 @@ class IdtrackeraiObjectIO(object):
 
         logger.info("Loading list of blobs...")
         self.list_of_blobs = ListOfBlobs.load(path)
+        self.list_of_blobs.blobs_in_video = self._interpolate_blobs(self.list_of_blobs)
         logger.info("List of blobs loaded")
-        logger.info("Connecting list of blobs...")
-        if not conf.RECONNECT_BLOBS_FROM_CACHE:
-            self.list_of_blobs.compute_overlapping_between_subsequent_frames()
-        else:
-            self.list_of_blobs.reconnect_from_cache()
+        # logger.info("Connecting list of blobs...")
+        # if not conf.RECONNECT_BLOBS_FROM_CACHE:
+        #     self.list_of_blobs.compute_overlapping_between_subsequent_frames()
+        # else:
+        #     self.list_of_blobs.reconnect_from_cache()
 
-        logger.info("List of blobs connected")
+        # logger.info("List of blobs connected")
         logger.info("Loading fragments...")
         path = os.path.join(project_path, "preprocessing", "fragments.npy")
         if (
@@ -174,3 +175,44 @@ class IdtrackeraiObjectIO(object):
             self.video_object.user_defined_parameters["number_of_animals"],
             black=True,
         )
+
+        
+    def _interpolate_blobs(self, list_of_blobs):
+
+        if getattr(self.video_object, "_store", False):
+
+            chunk = self.video_object._store._chunk
+
+            if self._blobs_in_video is None:
+
+                self._chunk = chunk
+                frames_per_chunk = len(self.video_object._store._delta_time_generator._chunk_md["frame_number"])
+                self._previous_frames = [[], ] * frames_per_chunk * chunk
+                
+                blobs_in_video = list_of_blobs.blobs_in_video
+                
+                time_delta = self.video_object._store._delta_time_generator.get_frame_metadata()["frame_time"]
+                main_time = self.video_object._store._main_store._get_chunk_metadata(
+                    self.video_object._store._main_store._chunk
+                )["frame_time"]
+                    
+                interval = (min(main_time), max(main_time))
+
+                time_delta = [e for e in time_delta if e >= interval[0] and e <= interval[1]]
+
+                interpolated_blobs = []
+
+                a = pd.DataFrame({"time": time_delta})
+                b = pd.DataFrame({"time": main_time, "frame_number": list(range(len(blobs_in_video)))})
+                a = pd.merge_asof(a, b, direction="backward", on="time")               
+                interpolated_blobs = [blobs_in_video[i] for i in a["frame_number"]]
+                extended_blobs_in_video = self._previous_frames + interpolated_blobs
+                next_frames = [[],] * (self.video_object._store.get(7) - len(extended_blobs_in_video))
+                extended_blobs_in_video += next_frames
+                self._blobs_in_video = extended_blobs_in_video
+                return self._blobs_in_video
+            else:
+                return self._blobs_in_video
+                
+        else:
+            return list_of_blobs.blobs_in_video

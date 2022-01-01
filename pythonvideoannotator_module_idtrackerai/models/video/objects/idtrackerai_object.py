@@ -117,6 +117,9 @@ class IdtrackeraiObject(
         self.video_object = None  # IdtrackerAI VideoObject
         self.list_of_blobs = None  # IdtrackerAI ListOfBlobs
         self.list_of_framents = None  # IdtrackerAI ListOfFragments
+        self._chunk = None
+        self._previous_frames = None
+        self._blobs_in_video = None
 
         self.formset = [
             "_name",
@@ -564,7 +567,10 @@ class IdtrackeraiObject(
         :param numpy.array frame: Image of the current frame.
         :param int frame_index: Index of the current frame in the video.
         :return numpy.array: The frame to draw.
+
         """
+        # import ipdb; ipdb.set_trace()
+
         if self.list_of_blobs is None:
             return
 
@@ -601,6 +607,7 @@ class IdtrackeraiObject(
                 if self.selected
                 else False,
             )
+            # import ipdb; ipdb.set_trace()
 
             if self.selected:
                 if self.selected.blob == blob:
