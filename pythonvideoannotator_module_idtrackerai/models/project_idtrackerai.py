@@ -46,15 +46,16 @@ class IdTrackerProject(object):
 
                 video_path = os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
                 imgstore_path = os.path.join(project_path, "..", "..", "metadata.yaml")
-                if os.path.exists(video_path):
-                    video.filepath_setter(video_path)
-                elif os.path.exists(imgstore_path):
+                import ipdb; ipdb.set_trace()
+                if os.path.exists(imgstore_path):
                     chunk_numbers = idtracker_videoobj._chunk_numbers
                     video.filepath_setter(
                         imgstore_path,
                         ref_chunk=idtracker_videoobj._chunk,
                         chunk_numbers=chunk_numbers
                     )
+                elif os.path.exists(video_path):
+                    video.filepath_setter(video_path)
                 else:
                     raise Exception("Video not found")
 
