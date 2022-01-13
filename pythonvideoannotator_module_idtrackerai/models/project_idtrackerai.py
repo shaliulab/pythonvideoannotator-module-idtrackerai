@@ -4,6 +4,16 @@ import logging
 from confapp import conf
 logger = logging.getLogger(__name__)
 
+def get_imgstore_path(project_path):
+    if getattr(conf, "FLYHOSTEL_DIRECTORY_VERSION", 2) == 2:
+        imgstore_path = os.path.join(project_path, "..", "..", "metadata.yaml")
+    
+    elif getattr(conf, "FLYHOSTEL_DIRECTORY_VERSION", 2) == 1:
+        imgstore_path = os.path.join(project_path, "..", "metadata.yaml")
+
+    return imgstore_path
+
+
 def get_chunk_numbers(idtracker_videoobj):
     try:
         # NOTE
@@ -29,6 +39,22 @@ def get_chunk(idtracker_videoobj):
 
 
 class IdTrackerProject(object):
+
+    @staticmethod
+    def set_filepath(video, idtracker_videoobj, video_path, imgstore_path):
+        if os.path.exists(imgstore_path):
+            chunk_numbers = get_chunk_numbers(idtracker_videoobj)
+            ref_chunk = get_chunk(idtracker_videoobj)
+
+            video.filepath_setter(
+                imgstore_path,
+                ref_chunk=ref_chunk,
+                chunk_numbers=chunk_numbers
+            )
+        elif os.path.exists(video_path):
+            video.filepath_setter(video_path)
+        else:
+            raise Exception("Video not found")
 
     def load(self, data, project_path=None):
         """
@@ -68,26 +94,9 @@ class IdTrackerProject(object):
                 video = self.create_video()
                 video.multiple_files = idtracker_videoobj.open_multiple_files
 
-                video_path = os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
-                if getattr(conf, "FLYHOSTEL_DIRECTORY_VERSION", 2) == 2:
-                    imgstore_path = os.path.join(project_path, "..", "..", "metadata.yaml")
-                
-                elif getattr(conf, "FLYHOSTEL_DIRECTORY_VERSION", 2) == 1:
-                    imgstore_path = os.path.join(project_path, "..", "metadata.yaml")
-                if os.path.exists(imgstore_path):
-                    import ipdb; ipdb.set_trace()
-                    chunk_numbers = get_chunk_numbers(idtracker_videoobj)
-                    ref_chunk = get_chunk(idtracker_videoobj)
-
-                    video.filepath_setter(
-                        imgstore_path,
-                        ref_chunk=ref_chunk,
-                        chunk_numbers=chunk_numbers
-                    )
-                elif os.path.exists(video_path):
-                    video.filepath_setter(video_path)
-                else:
-                    raise Exception("Video not found")
+                video_path = os.path.join(project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
+                imgstore_path = get_imgstore_path(project_path)
+                self.set_filepath(video, idtracker_videoobj, video_path, imgstore_path)
 
                 obj = video.create_idtrackerai_object()
                 obj.load_from_idtrackerai(project_path, idtracker_videoobj)
