@@ -569,10 +569,8 @@ class IdtrackeraiObject(
         :return numpy.array: The frame to draw.
 
         """
-        # import ipdb; ipdb.set_trace()
 
-        if self.list_of_blobs is None:
-            return
+        if self.list_of_blobs is None: return
 
         if frame_index >= len(self.list_of_blobs.blobs_in_video):
             return
@@ -581,6 +579,7 @@ class IdtrackeraiObject(
         blobs = self.list_of_blobs.blobs_in_video[frame_index]
 
         new_selected = None
+
         for blob in blobs:
             if self.selected is not None:
                 if (

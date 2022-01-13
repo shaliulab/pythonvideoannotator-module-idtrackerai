@@ -1,41 +1,9 @@
 import os, numpy as np
 import logging
 
-from confapp import conf
 logger = logging.getLogger(__name__)
 
-def get_imgstore_path(project_path):
-    if getattr(conf, "FLYHOSTEL_DIRECTORY_VERSION", 2) == 2:
-        imgstore_path = os.path.join(project_path, "..", "..", "metadata.yaml")
-    
-    elif getattr(conf, "FLYHOSTEL_DIRECTORY_VERSION", 2) == 1:
-        imgstore_path = os.path.join(project_path, "..", "metadata.yaml")
-
-    return imgstore_path
-
-
-def get_chunk_numbers(idtracker_videoobj):
-    try:
-        # NOTE
-        # This should work on all future idtrackerai analysis runs using imgstore
-        chunk_numbers = idtracker_videoobj._chunk_numbers
-    except:
-        # for now this allows me to figure it out
-        session = os.path.dirname(idtracker_videoobj.path_to_video_object)
-        chunk = int(session.split("_")[1])
-        chunk_numbers = [chunk-1, chunk, chunk+1]
-        chunk_numbers = [e for e in chunk_numbers if e >= 0]
-    
-    return chunk_numbers
-
-def get_chunk(idtracker_videoobj):
-    try:
-        chunk = idtracker_videoobj._chunk
-    except:
-        session = os.path.dirname(idtracker_videoobj.path_to_video_object)
-        chunk = int(session.split("_")[1])
-    
-    return chunk  
+from pythonvideoannotator_module_idtrackerai.models.video.objects.utils import get_chunk_numbers, get_chunk, get_imgstore_path
 
 
 class IdTrackerProject(object):
@@ -51,8 +19,11 @@ class IdTrackerProject(object):
                 ref_chunk=ref_chunk,
                 chunk_numbers=chunk_numbers
             )
+            return "imgstore"
+
         elif os.path.exists(video_path):
             video.filepath_setter(video_path)
+            return "cv2"
         else:
             raise Exception("Video not found")
 
@@ -96,10 +67,10 @@ class IdTrackerProject(object):
 
                 video_path = os.path.join(project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
                 imgstore_path = get_imgstore_path(project_path)
-                self.set_filepath(video, idtracker_videoobj, video_path, imgstore_path)
+                backend = self.set_filepath(video, idtracker_videoobj, video_path, imgstore_path)
 
                 obj = video.create_idtrackerai_object()
-                obj.load_from_idtrackerai(project_path, idtracker_videoobj)
+                obj.load_from_idtrackerai(project_path, idtracker_videoobj, backend=backend)
 
                 # expand and select the tree nodes
                 video.treenode.setExpanded(True)

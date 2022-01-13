@@ -1,5 +1,6 @@
 import time, copy, numpy as np, os, logging
 import pandas as pd
+from pythonvideoannotator_module_idtrackerai.models.video.objects.utils import get_chunk_numbers, get_chunk, get_imgstore_path
 from confapp import conf
 
 try:
@@ -126,7 +127,7 @@ class IdtrackeraiObjectIO(object):
 
         self.load_from_idtrackerai(idtrackerai_prj_path, videoobj)
 
-    def load_from_idtrackerai(self, project_path, video_object=None):
+    def load_from_idtrackerai(self, project_path, video_object=None, backend="cv2"):
 
         vidobj_path = os.path.join(project_path, "video_object.npy")
         if video_object is None:
@@ -150,7 +151,7 @@ class IdtrackeraiObjectIO(object):
 
         logger.info("Loading list of blobs...")
         self.list_of_blobs = ListOfBlobs.load(path)
-        self.list_of_blobs.blobs_in_video = self._interpolate_blobs(self.list_of_blobs)
+        self.list_of_blobs.blobs_in_video = self._interpolate_blobs(self.list_of_blobs, backend=backend)
         logger.info("List of blobs loaded")
         # logger.info("Connecting list of blobs...")
         # if not conf.RECONNECT_BLOBS_FROM_CACHE:
@@ -177,23 +178,25 @@ class IdtrackeraiObjectIO(object):
         )
 
         
-    def _interpolate_blobs(self, list_of_blobs):
+    def _interpolate_blobs(self, list_of_blobs, backend="imgstore"):
 
-        if getattr(self.video_object, "_store", False):
+        print("Interpolating blobs to adjust for multicamera feed")
 
-            chunk = self.video_object._store._chunk
+        if backend=="imgstore":
+
+            chunk = self.video._videocap._chunk
 
             if self._blobs_in_video is None:
 
                 self._chunk = chunk
-                frames_per_chunk = len(self.video_object._store._delta_time_generator._chunk_md["frame_number"])
+                frames_per_chunk = len(self.video._videocap._delta_time_generator._chunk_md["frame_number"])
                 self._previous_frames = [[], ] * frames_per_chunk * chunk
                 
                 blobs_in_video = list_of_blobs.blobs_in_video
                 
-                time_delta = self.video_object._store._delta_time_generator.get_frame_metadata()["frame_time"]
-                main_time = self.video_object._store._main_store._get_chunk_metadata(
-                    self.video_object._store._main_store._chunk
+                time_delta = self.video._videocap._delta_time_generator.get_frame_metadata()["frame_time"]
+                main_time = self.video._videocap._main_store._get_chunk_metadata(
+                    self.video._videocap._main_store._chunk
                 )["frame_time"]
                     
                 interval = (min(main_time), max(main_time))
@@ -202,17 +205,22 @@ class IdtrackeraiObjectIO(object):
 
                 interpolated_blobs = []
 
-                a = pd.DataFrame({"time": time_delta})
-                b = pd.DataFrame({"time": main_time, "frame_number": list(range(len(blobs_in_video)))})
-                a = pd.merge_asof(a, b, direction="backward", on="time")               
-                interpolated_blobs = [blobs_in_video[i] for i in a["frame_number"]]
+                time_delta_df = pd.DataFrame({"time": time_delta})
+                main_time_df = pd.DataFrame({"time": main_time, "frame_number": list(range(len(blobs_in_video)))})
+                time_delta_df = pd.merge_asof(time_delta_df, main_time_df, direction="backward", on="time") 
+                time_delta_df.to_csv("/tmp/session_index.csv")
+                interpolated_blobs = [blobs_in_video[i] for i in time_delta_df["frame_number"]]
                 extended_blobs_in_video = self._previous_frames + interpolated_blobs
-                next_frames = [[],] * (self.video_object._store.get(7) - len(extended_blobs_in_video))
+                next_frames = [[],] * (self.video._videocap.get(7) - len(extended_blobs_in_video))
                 extended_blobs_in_video += next_frames
                 self._blobs_in_video = extended_blobs_in_video
                 return self._blobs_in_video
             else:
                 return self._blobs_in_video
                 
+        elif backend=="cv2":
+            return list_of_blobs.blobs_in_video
+
         else:
+            logger.warning(f"Unknown backend {backend}")
             return list_of_blobs.blobs_in_video
