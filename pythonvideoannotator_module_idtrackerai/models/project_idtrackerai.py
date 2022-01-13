@@ -1,7 +1,31 @@
 import os, numpy as np
 import logging
 
+from confapp import conf
 logger = logging.getLogger(__name__)
+
+def get_chunk_numbers(idtracker_videoobj):
+    try:
+        # NOTE
+        # This should work on all future idtrackerai analysis runs using imgstore
+        chunk_numbers = idtracker_videoobj._chunk_numbers
+    except:
+        # for now this allows me to figure it out
+        session = os.path.dirname(idtracker_videoobj.path_to_video_object)
+        chunk = int(session.split("_")[1])
+        chunk_numbers = [chunk-1, chunk, chunk+1]
+        chunk_numbers = [e for e in chunk_numbers if e >= 0]
+    
+    return chunk_numbers
+
+def get_chunk(idtracker_videoobj):
+    try:
+        chunk = idtracker_videoobj._chunk
+    except:
+        session = os.path.dirname(idtracker_videoobj.path_to_video_object)
+        chunk = int(session.split("_")[1])
+    
+    return chunk  
 
 
 class IdTrackerProject(object):
@@ -45,13 +69,19 @@ class IdTrackerProject(object):
                 video.multiple_files = idtracker_videoobj.open_multiple_files
 
                 video_path = os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
-                imgstore_path = os.path.join(project_path, "..", "..", "metadata.yaml")
-                import ipdb; ipdb.set_trace()
+                if getattr(conf, "FLYHOSTEL_DIRECTORY_VERSION", 2) == 2:
+                    imgstore_path = os.path.join(project_path, "..", "..", "metadata.yaml")
+                
+                elif getattr(conf, "FLYHOSTEL_DIRECTORY_VERSION", 2) == 1:
+                    imgstore_path = os.path.join(project_path, "..", "metadata.yaml")
                 if os.path.exists(imgstore_path):
-                    chunk_numbers = idtracker_videoobj._chunk_numbers
+                    import ipdb; ipdb.set_trace()
+                    chunk_numbers = get_chunk_numbers(idtracker_videoobj)
+                    ref_chunk = get_chunk(idtracker_videoobj)
+
                     video.filepath_setter(
                         imgstore_path,
-                        ref_chunk=idtracker_videoobj._chunk,
+                        ref_chunk=ref_chunk,
                         chunk_numbers=chunk_numbers
                     )
                 elif os.path.exists(video_path):
