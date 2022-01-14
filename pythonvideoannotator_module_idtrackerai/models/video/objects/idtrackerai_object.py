@@ -606,7 +606,6 @@ class IdtrackeraiObject(
                 if self.selected
                 else False,
             )
-            # import ipdb; ipdb.set_trace()
 
             if self.selected:
                 if self.selected.blob == blob:
