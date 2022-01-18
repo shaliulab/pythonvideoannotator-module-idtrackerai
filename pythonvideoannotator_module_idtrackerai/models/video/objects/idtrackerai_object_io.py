@@ -236,83 +236,110 @@ class IdtrackeraiObjectIO(object):
             black=True,
         )
 
-        
+
     def _interpolate_blobs(self, list_of_blobs, backend="imgstore"):
+        logger.warning("Deprecated. Use _align_blobs")
+        return self._align_blobs(list_of_blobs, backend)
+
+    def _align_blobs_imgstore(self, list_of_blobs, version=2):
+
+        if version == 1:
+            return self._align_blobs_imgstore_v1(list_of_blobs)
+        
+        elif version == 2:
+            return self._align_blobs_imgstore_v2(list_of_blobs)
+        
+    def _align_blobs_imgstore_v2(self, list_of_blobs):
+
+        store = self.video._videocap
+        chunk = self.video._videocap._chunk
+
+        time_index_df = store.get_crossindex().loc[
+            store.get_crossindex()["main_chunk"] == chunk
+        ]
+        list_of_blobs.time_index_df = time_index_df
+
+        aligned_blobs = [list_of_blobs.blobs_in_video[i] for i in time_index_df["frame_number"]]
+
+    def _align_blobs_imgstore_v1(self, list_of_blobs):
+        
+        chunk = self.video._videocap._chunk
+
+        if self._blobs_in_video is None:
+
+            self._chunk = chunk
+            # frames_per_chunk = len(self.video._videocap._delta_time_generator._chunk_md["frame_number"])
+            metadata = self.video._videocap._delta_time_generator.get_frame_metadata()
+
+            frame_index_all = metadata["frame_number"]
+            time_index_all = metadata["frame_time"]
+
+            blobs_in_video = list_of_blobs.blobs_in_video
+            
+            main_time = self.video._videocap._main_store._get_chunk_metadata(
+                self.video._videocap._main_store._chunk
+            )["frame_time"]
+                
+            interval = (min(main_time), max(main_time))
+
+            time_index = [e for e in time_index_all if e >= interval[0] and e <= interval[1]]
+
+            interpolated_blobs = []
+
+            time_index_df = pd.DataFrame({"time": time_index})
+            main_time_df = pd.DataFrame({"time": main_time, "frame_number": list(range(len(blobs_in_video)))})
+            time_index_df = pd.merge_asof(time_index_df, main_time_df, direction="backward", on="time") 
+            time_index_df.to_csv("/tmp/session_index.csv")
+            list_of_blobs.time_index_df = time_index_df
+            interpolated_blobs = [blobs_in_video[i] for i in time_index_df["frame_number"]]
+            
+            index_of_first_frame = frame_index_all[
+                np.where(time_index_df.head(1)["time"].values == np.array(time_index_all))[0].tolist()[0]
+            ]
+            index_of_last_frame = frame_index_all[
+                np.where(time_index_df.tail(1)["time"].values == np.array(time_index_all))[0].tolist()[0]
+            ]
+
+            self._previous_frames = [[], ] * index_of_first_frame
+            extended_blobs_in_video = self._previous_frames + interpolated_blobs
+            # TODO Is this = index_of_last_frame? or index_of_last_frame - 1?
+            end_of_frames_with_blob = len(extended_blobs_in_video)
+            frames_after_last_frame_with_blob = (len(frame_index_all) - index_of_last_frame)
+
+            list_of_blobs._delimitations = (
+                index_of_first_frame,
+                end_of_frames_with_blob,
+                end_of_frames_with_blob + frames_after_last_frame_with_blob
+            )
+            
+            for i in tqdm(
+                range(index_of_first_frame, len(extended_blobs_in_video)),
+                desc="Adjusting frame number of blobs"
+            ):
+
+                blobs = extended_blobs_in_video[i]
+                for blob in blobs:
+                    blob._frame_number_in_original_video = blob.frame_number
+                    blob.frame_number = i
+                # if i == index_of_first_frame:
+                #     import ipdb; ipdb.set_trace()
+
+            next_frames = [[],] * frames_after_last_frame_with_blob
+            extended_blobs_in_video += next_frames
+            self._blobs_in_video_original = self._blobs_in_video
+            self._blobs_in_video = extended_blobs_in_video
+            return self._blobs_in_video
+        
+        else:
+            return self._blobs_in_video
+
+
+    def _align_blobs(self, list_of_blobs, backend="imgstore"):
 
         print("Interpolating blobs to adjust for multicamera feed")
 
         if backend=="imgstore":
-
-            chunk = self.video._videocap._chunk
-
-            if self._blobs_in_video is None:
-
-                self._chunk = chunk
-                # frames_per_chunk = len(self.video._videocap._delta_time_generator._chunk_md["frame_number"])
-                metadata = self.video._videocap._delta_time_generator.get_frame_metadata()
-
-                frame_index_all = metadata["frame_number"]
-                time_index_all = metadata["frame_time"]
-
-                blobs_in_video = list_of_blobs.blobs_in_video
-                
-                main_time = self.video._videocap._main_store._get_chunk_metadata(
-                    self.video._videocap._main_store._chunk
-                )["frame_time"]
-                    
-                interval = (min(main_time), max(main_time))
-
-                time_index = [e for e in time_index_all if e >= interval[0] and e <= interval[1]]
-
-                interpolated_blobs = []
-
-                time_index_df = pd.DataFrame({"time": time_index})
-                main_time_df = pd.DataFrame({"time": main_time, "frame_number": list(range(len(blobs_in_video)))})
-                time_index_df = pd.merge_asof(time_index_df, main_time_df, direction="backward", on="time") 
-                time_index_df.to_csv("/tmp/session_index.csv")
-                list_of_blobs.time_index_df = time_index_df
-                interpolated_blobs = [blobs_in_video[i] for i in time_index_df["frame_number"]]
-                
-                index_of_first_frame = frame_index_all[
-                    np.where(time_index_df.head(1)["time"].values == np.array(time_index_all))[0].tolist()[0]
-                ]
-                index_of_last_frame = frame_index_all[
-                    np.where(time_index_df.tail(1)["time"].values == np.array(time_index_all))[0].tolist()[0]
-                ]
-
-
-
-                self._previous_frames = [[], ] * index_of_first_frame
-                extended_blobs_in_video = self._previous_frames + interpolated_blobs
-                # TODO Is this = index_of_last_frame? or index_of_last_frame - 1?
-                end_of_frames_with_blob = len(extended_blobs_in_video)
-                frames_after_last_frame_with_blob = (len(frame_index_all) - index_of_last_frame)
-
-                list_of_blobs._delimitations = (
-                    index_of_first_frame,
-                    end_of_frames_with_blob,
-                    end_of_frames_with_blob + frames_after_last_frame_with_blob
-                )
-                
-                for i in tqdm(
-                    range(index_of_first_frame, len(extended_blobs_in_video)),
-                    desc="Adjusting frame number of blobs"
-                ):
-
-                    blobs = extended_blobs_in_video[i]
-                    for blob in blobs:
-                        blob._frame_number_in_original_video = blob.frame_number
-                        blob.frame_number = i
-                    # if i == index_of_first_frame:
-                    #     import ipdb; ipdb.set_trace()
-
-                next_frames = [[],] * frames_after_last_frame_with_blob
-                extended_blobs_in_video += next_frames
-                self._blobs_in_video_original = self._blobs_in_video
-                self._blobs_in_video = extended_blobs_in_video
-                return self._blobs_in_video
-            else:
-                return self._blobs_in_video
+            return self._align_blobs_imgstore(list_of_blobs, version=2)
                 
         elif backend=="cv2":
             return list_of_blobs.blobs_in_video
