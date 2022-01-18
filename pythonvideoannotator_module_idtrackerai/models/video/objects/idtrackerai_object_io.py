@@ -1,13 +1,16 @@
 import time, copy, numpy as np, os, logging
 import pandas as pd
 from pythonvideoannotator_module_idtrackerai.models.video.objects.utils import get_chunk_numbers, get_chunk, get_imgstore_path
+from tqdm import tqdm
 from confapp import conf
+import pandas as pd
+
 
 try:
     import sys
 
     sys.path.append(os.getcwd())
-    import local_settings
+    import local_settings # type ignore
 
     conf += local_settings
 except Exception as e:
@@ -32,6 +35,7 @@ from idtrackerai.list_of_blobs import ListOfBlobs
 logger = logging.getLogger(__name__)
 
 
+
 class IdtrackeraiObjectIO(object):
 
     FACTORY_FUNCTION = "create_idtrackerai_object"
@@ -43,7 +47,56 @@ class IdtrackeraiObjectIO(object):
         data["idtrackerai-project-path"] = idtrackerai_prj_path
         return super().save(data, obj_path)
 
+    def undo_multicamera_integration(self, delimitations):
+        start_time = time.time()
+        
+        self.list_of_blobs.blobs_in_video = self.list_of_blobs.blobs_in_video[
+            delimitations[0]:delimitations[1]
+        ]
+        frame_index = pd.DataFrame(self.list_of_blobs.time_index_df["frame_number"]).drop_duplicates()
+        
+        self.list_of_blobs.blobs_in_video = [
+            self.list_of_blobs.blobs_in_video[i] for i in frame_index.index
+        ]
+        
+        
+        for i, blobs_in_frame in enumerate(self.list_of_blobs.blobs_in_video):
+            for blob in blobs_in_frame:
+                blob._interpolated_frame_number = blob.frame_number
+                # blob.frame_number = blob._frame_number_in_original_video
+                blob.frame_number = i
+        end_time = time.time()
+        print(f"Undid changes in {end_time - start_time}")
+ 
+    def redo_multicamera_integration(self, delimitations):
+
+        start_time = time.time()
+        
+        integrated_blobs = [
+            self.list_of_blobs.blobs_in_video[i]
+            for i in self.list_of_blobs.time_index_df["frame_number"] 
+        ]
+
+        self.list_of_blobs.blobs_in_video = [[],] * delimitations[0] + \
+            integrated_blobs + \
+            [[],] * (delimitations[2] - delimitations[1])
+        
+        for blobs_in_frame in self.list_of_blobs.blobs_in_video:
+            for blob in blobs_in_frame:
+                blob._frame_number_in_original_video = blob.frame_number
+                blob.frame_number = blob._interpolated_frame_number
+
+        end_time = time.time()
+        print(f"Redid changes in {end_time - start_time}")
+
+
     def save_updated_identities(self):
+        # undo the changes I did to show multicamera feed
+        delimitations = getattr(self.list_of_blobs, "_delimitations", False)
+        if delimitations:
+            self.undo_multicamera_integration(delimitations)
+
+    
         logger.info("Disconnecting list of blobs...")
         self.list_of_blobs.disconnect()
 
@@ -66,6 +119,7 @@ class IdtrackeraiObjectIO(object):
             "trajectories_wo_gaps_{}.npy".format(timestamp_str),
         )
         logger.info("Producing trajectories without gaps ...")
+        # import ipdb; ipdb.set_trace()
         trajectories_wo_gaps = produce_output_dict(
             self.list_of_blobs.blobs_in_video, self.video_object
         )
@@ -96,6 +150,9 @@ class IdtrackeraiObjectIO(object):
         logger.info("Saving video object...")
         self.video_object.save()
         logger.info("Video saved")
+        if delimitations:
+            self.redo_multicamera_integration(delimitations)
+        
 
     def compute_gt_accuracy(self, generate=True, start=0, end=-1):
         if generate:
@@ -150,17 +207,18 @@ class IdtrackeraiObjectIO(object):
             )
 
         logger.info("Loading list of blobs...")
-        self.list_of_blobs = ListOfBlobs.load(path)
+        self.list_of_blobs = ListOfBlobs.load(path)       
+        logger.info("List of blobs loaded")
+        logger.info("Connecting list of blobs...")
+        if not conf.RECONNECT_BLOBS_FROM_CACHE:
+            self.list_of_blobs.compute_overlapping_between_subsequent_frames()
+        else:
+            self.list_of_blobs.reconnect_from_cache()
+
+        logger.info("List of blobs connected")
+
         self.list_of_blobs.blobs_in_video = self._interpolate_blobs(self.list_of_blobs, backend=backend)
 
-        logger.info("List of blobs loaded")
-        # logger.info("Connecting list of blobs...")
-        # if not conf.RECONNECT_BLOBS_FROM_CACHE:
-        #     self.list_of_blobs.compute_overlapping_between_subsequent_frames()
-        # else:
-        #     self.list_of_blobs.reconnect_from_cache()
-
-        # logger.info("List of blobs connected")
         logger.info("Loading fragments...")
         path = os.path.join(project_path, "preprocessing", "fragments.npy")
         if (
@@ -222,9 +280,33 @@ class IdtrackeraiObjectIO(object):
                     np.where(time_index_df.tail(1)["time"].values == np.array(time_index_all))[0].tolist()[0]
                 ]
 
-                self._previous_frames = [[], ] * (index_of_first_frame-1)
+
+
+                self._previous_frames = [[], ] * index_of_first_frame
                 extended_blobs_in_video = self._previous_frames + interpolated_blobs
-                next_frames = [[],] * (len(frame_index_all) - index_of_last_frame)
+                # TODO Is this = index_of_last_frame? or index_of_last_frame - 1?
+                end_of_frames_with_blob = len(extended_blobs_in_video)
+                frames_after_last_frame_with_blob = (len(frame_index_all) - index_of_last_frame)
+
+                list_of_blobs._delimitations = (
+                    index_of_first_frame,
+                    end_of_frames_with_blob,
+                    end_of_frames_with_blob + frames_after_last_frame_with_blob
+                )
+                
+                for i in tqdm(
+                    range(index_of_first_frame, len(extended_blobs_in_video)),
+                    desc="Adjusting frame number of blobs"
+                ):
+
+                    blobs = extended_blobs_in_video[i]
+                    for blob in blobs:
+                        blob._frame_number_in_original_video = blob.frame_number
+                        blob.frame_number = i
+                    # if i == index_of_first_frame:
+                    #     import ipdb; ipdb.set_trace()
+
+                next_frames = [[],] * frames_after_last_frame_with_blob
                 extended_blobs_in_video += next_frames
                 self._blobs_in_video_original = self._blobs_in_video
                 self._blobs_in_video = extended_blobs_in_video

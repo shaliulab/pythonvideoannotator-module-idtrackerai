@@ -137,8 +137,10 @@ class IdtrackeraiObjectMouseEvents(object):
                 "frame_number,in_frame_index,identity,new_blob_identity,x,y\n"
             )
             for row in self._history:
+                frame_number = getattr(row, "frame_number_generic", row.frame_number)
 
-                fh.write(f"{row.session_folder},{row.frame_number_generic},{row.in_frame_index},"\
+
+                fh.write(f"{row.session_folder},{frame_number},{row.in_frame_index},"\
                          f"{row.identity},{row.new_blob_identity},"\
                          f"{row.x},{row.y}\n")
 
