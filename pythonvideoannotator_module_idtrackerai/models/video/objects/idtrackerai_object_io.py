@@ -49,17 +49,17 @@ class IdtrackeraiObjectIO(object):
 
     def undo_multicamera_integration(self, delimitations):
         start_time = time.time()
-        
+
         self.list_of_blobs.blobs_in_video = self.list_of_blobs.blobs_in_video[
             delimitations[0]:delimitations[1]
         ]
         frame_index = pd.DataFrame(self.list_of_blobs.time_index_df["frame_number"]).drop_duplicates()
-        
+
         self.list_of_blobs.blobs_in_video = [
             self.list_of_blobs.blobs_in_video[i] for i in frame_index.index
         ]
-        
-        
+
+
         for i, blobs_in_frame in enumerate(self.list_of_blobs.blobs_in_video):
             for blob in blobs_in_frame:
                 blob._interpolated_frame_number = blob.frame_number
@@ -67,20 +67,20 @@ class IdtrackeraiObjectIO(object):
                 blob.frame_number = i
         end_time = time.time()
         print(f"Undid changes in {end_time - start_time}")
- 
+
     def redo_multicamera_integration(self, delimitations):
 
         start_time = time.time()
-        
+
         integrated_blobs = [
             self.list_of_blobs.blobs_in_video[i]
-            for i in self.list_of_blobs.time_index_df["frame_number"] 
+            for i in self.list_of_blobs.time_index_df["frame_number"]
         ]
 
         self.list_of_blobs.blobs_in_video = [[],] * delimitations[0] + \
             integrated_blobs + \
             [[],] * (delimitations[2] - delimitations[1])
-        
+
         for blobs_in_frame in self.list_of_blobs.blobs_in_video:
             for blob in blobs_in_frame:
                 blob._frame_number_in_original_video = blob.frame_number
@@ -96,7 +96,7 @@ class IdtrackeraiObjectIO(object):
         if delimitations:
             self.undo_multicamera_integration(delimitations)
 
-    
+
         logger.info("Disconnecting list of blobs...")
         self.list_of_blobs.disconnect()
 
@@ -152,7 +152,7 @@ class IdtrackeraiObjectIO(object):
         logger.info("Video saved")
         if delimitations:
             self.redo_multicamera_integration(delimitations)
-        
+
 
     def compute_gt_accuracy(self, generate=True, start=0, end=-1):
         if generate:
@@ -207,7 +207,7 @@ class IdtrackeraiObjectIO(object):
             )
 
         logger.info("Loading list of blobs...")
-        self.list_of_blobs = ListOfBlobs.load(path)       
+        self.list_of_blobs = ListOfBlobs.load(path)
         logger.info("List of blobs loaded")
         logger.info("Connecting list of blobs...")
         if not conf.RECONNECT_BLOBS_FROM_CACHE:
@@ -245,10 +245,10 @@ class IdtrackeraiObjectIO(object):
 
         if version == 1:
             return self._align_blobs_imgstore_v1(list_of_blobs)
-        
+
         elif version == 2:
             return self._align_blobs_imgstore_v2(list_of_blobs)
-        
+
     def _align_blobs_imgstore_v2(self, list_of_blobs):
 
         store = self.video._videocap
@@ -262,7 +262,7 @@ class IdtrackeraiObjectIO(object):
         aligned_blobs = [list_of_blobs.blobs_in_video[i] for i in time_index_df["frame_number"]]
 
     def _align_blobs_imgstore_v1(self, list_of_blobs):
-        
+
         chunk = self.video._videocap._chunk
 
         if self._blobs_in_video is None:
@@ -275,11 +275,11 @@ class IdtrackeraiObjectIO(object):
             time_index_all = metadata["frame_time"]
 
             blobs_in_video = list_of_blobs.blobs_in_video
-            
+
             main_time = self.video._videocap._main_store._get_chunk_metadata(
                 self.video._videocap._main_store._chunk
             )["frame_time"]
-                
+
             interval = (min(main_time), max(main_time))
 
             time_index = [e for e in time_index_all if e >= interval[0] and e <= interval[1]]
@@ -288,11 +288,11 @@ class IdtrackeraiObjectIO(object):
 
             time_index_df = pd.DataFrame({"time": time_index})
             main_time_df = pd.DataFrame({"time": main_time, "frame_number": list(range(len(blobs_in_video)))})
-            time_index_df = pd.merge_asof(time_index_df, main_time_df, direction="backward", on="time") 
+            time_index_df = pd.merge_asof(time_index_df, main_time_df, direction="backward", on="time")
             time_index_df.to_csv("/tmp/session_index.csv")
             list_of_blobs.time_index_df = time_index_df
             interpolated_blobs = [blobs_in_video[i] for i in time_index_df["frame_number"]]
-            
+
             index_of_first_frame = frame_index_all[
                 np.where(time_index_df.head(1)["time"].values == np.array(time_index_all))[0].tolist()[0]
             ]
@@ -311,7 +311,7 @@ class IdtrackeraiObjectIO(object):
                 end_of_frames_with_blob,
                 end_of_frames_with_blob + frames_after_last_frame_with_blob
             )
-            
+
             for i in tqdm(
                 range(index_of_first_frame, len(extended_blobs_in_video)),
                 desc="Adjusting frame number of blobs"
@@ -329,7 +329,7 @@ class IdtrackeraiObjectIO(object):
             self._blobs_in_video_original = self._blobs_in_video
             self._blobs_in_video = extended_blobs_in_video
             return self._blobs_in_video
-        
+
         else:
             return self._blobs_in_video
 
@@ -339,8 +339,8 @@ class IdtrackeraiObjectIO(object):
         print("Interpolating blobs to adjust for multicamera feed")
 
         if backend=="imgstore":
-            return self._align_blobs_imgstore(list_of_blobs, version=2)
-                
+            return self._align_blobs_imgstore(list_of_blobs, version=1)
+
         elif backend=="cv2":
             return list_of_blobs.blobs_in_video
 
