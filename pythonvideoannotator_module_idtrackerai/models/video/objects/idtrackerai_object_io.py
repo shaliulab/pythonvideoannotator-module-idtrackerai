@@ -5,7 +5,7 @@ from tqdm import tqdm
 from confapp import conf
 import pandas as pd
 
-
+import re
 try:
     import sys
 
@@ -33,6 +33,41 @@ from idtrackerai.groundtruth_utils.compute_groundtruth_statistics_general import
 from idtrackerai.list_of_blobs import ListOfBlobs
 
 logger = logging.getLogger(__name__)
+
+
+
+def pick_blob_collection(folder, verify=False):
+
+    base_pattern = "blobs_collection.*.npy$"
+    timestamped_pattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}_" + base_pattern
+
+
+    if verify:
+        raise NotImplementedError()
+    else:
+        ok = True
+    
+    if ok:
+
+        preprocessing_folder = os.path.join(folder, "preprocessing")
+        stuff = sorted(os.listdir(preprocessing_folder))
+
+        selected_timestamp = []
+        selected_no_timestamp = []
+        for thing in stuff:
+            if re.match(timestamped_pattern, thing):
+                selected_timestamp.append(thing)
+
+            elif re.match(base_pattern, thing):
+                selected_no_timestamp.append(thing)
+
+        selected_no_timestamp = sorted(selected_no_timestamp, reverse=True)
+        selected_timestamp = sorted(selected_timestamp, reverse=True)
+        selected = selected_timestamp + selected_no_timestamp
+
+        return os.path.join(preprocessing_folder, selected[0])
+    else:
+        logger.warning(f"{folder} is corrupted")
 
 
 
@@ -206,14 +241,18 @@ class IdtrackeraiObjectIO(object):
                 project_path, "preprocessing", "blobs_collection.npy"
             )
 
+
+        path = pick_blob_collection(project_path, verify=False)
+        print(f"Selected {path} as blobs collection")
+
         logger.info("Loading list of blobs...")
         self.list_of_blobs = ListOfBlobs.load(path)
         logger.info("List of blobs loaded")
         logger.info("Connecting list of blobs...")
-        if not conf.RECONNECT_BLOBS_FROM_CACHE:
-            self.list_of_blobs.compute_overlapping_between_subsequent_frames()
-        else:
+        if conf.RECONNECT_BLOBS_FROM_CACHE:
             self.list_of_blobs.reconnect_from_cache()
+        else:
+            self.list_of_blobs.compute_overlapping_between_subsequent_frames()
 
         logger.info("List of blobs connected")
 

@@ -5,7 +5,6 @@ logger = logging.getLogger(__name__)
 
 from pythonvideoannotator_module_idtrackerai.models.video.objects.utils import get_chunk_numbers, get_chunk, get_imgstore_path
 
-
 class IdTrackerProject(object):
 
     @staticmethod
@@ -56,6 +55,8 @@ class IdTrackerProject(object):
             blobs_path  = os.path.join(project_path, 'preprocessing', 'blobs_collection_no_gaps.npy')
             if not os.path.exists(blobs_path):
                 blobs_path = os.path.join(project_path, 'preprocessing', 'blobs_collection.npy')
+
+
             vidobj_path = os.path.join(project_path, 'video_object.npy')
 
             if os.path.exists(blobs_path) and os.path.exists(vidobj_path):
