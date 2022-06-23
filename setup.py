@@ -21,5 +21,8 @@ setup(
         'console_scripts': [
             'idtrackerai2annotator=pythonvideoannotator_module_idtrackerai.__main__:run',
         ],
-    }
+    },
+	extras_require={
+		"imgstore": ["imgstore-shaliulab>=0.4.4"]
+	}
 )

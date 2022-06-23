@@ -1,6 +1,5 @@
 import time, copy, numpy as np, os, logging
-
-from confapp import conf
+from confapp import conf, load_config
 
 try:
     import sys
@@ -28,6 +27,13 @@ from idtrackerai.groundtruth_utils.compute_groundtruth_statistics_general import
 
 logger = logging.getLogger(__name__)
 
+try:
+    import imgstore.constants
+    import imgstore.interface
+    
+    IMGSTORE_ENABLED=True
+except ModuleNotFoundError:
+    IMGSTORE_ENABLED=False
 
 class IdtrackeraiObjectIO(object):
 
@@ -152,6 +158,7 @@ class IdtrackeraiObjectIO(object):
         logger.info("Connecting list of blobs...")
         self.list_of_blobs.compute_overlapping_between_subsequent_frames()
         logger.info("List of blobs connected")
+        self.align_list_of_blobs()
         logger.info("Loading fragments...")
         path = os.path.join(project_path, "preprocessing", "fragments.npy")
         if (
@@ -168,3 +175,53 @@ class IdtrackeraiObjectIO(object):
             self.video_object.user_defined_parameters["number_of_animals"],
             black=True,
         )
+
+
+    def align_list_of_blobs(self):
+        """
+        This method takes the blobs_in_video and duplicates its elements
+        (blobs_in_frame) so the number of blobs_in_frame matches the
+        number of frames of the selected store
+        (which is supposed to have a higher framerate)
+        """
+        
+        config = load_config(imgstore.constants)
+        import ipdb; ipdb.set_trace()
+
+        if IMGSTORE_ENABLED:
+            cap=imgstore.interface.VideoCapture(
+                self.video_object.video_path
+            )
+
+            if getattr(config, "MULTI_STORE_ENABLED", False):
+                cap.select_store(config.SELECTED_STORE)            
+            
+                frame_numbers=[]
+                metadata=cap._selected._frame_metadata
+                index=cap._master._index
+
+                # TODO
+                # This is parallelizable?
+                for i, row in metadata.iterrows():
+                    frame_number_delta = row["frame_number"]
+                    frame_time_delta = row["frame_time"]
+                    chunk, frame_idx, frame_number, frame_time = index.find_all(
+                        what="frame_time",
+                        value=frame_time_delta,
+                        exact_only=False,
+                        past=True,
+                        future=False,
+                    )
+                    frame_numbers.append(frame_number)
+
+                aligned_blobs=[]               
+                for frame_number in frame_numbers:
+                    aligned_blobs.append(self.list_of_blobs.blobs_in_video[frame_number])
+                
+                self.list_of_blobs.blobs_in_video = aligned_blobs
+
+            else:
+                pass
+
+        else:
+            pass

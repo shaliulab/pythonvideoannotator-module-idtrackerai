@@ -1,5 +1,22 @@
+from modulefinder import Module
 import os, numpy as np
+try:
+    from imgstore.constants import STORE_MD_FILENAME
+    IMGSTORE_ENABLED=True
+except ModuleNotFoundError:
+    IMGSTORE_ENABLED=False
 
+from pythonvideoannotator_module_idtrackerai import constants
+from confapp import load_config
+
+def build_video_path(project_path, idtracker_videoobj):
+
+    config=load_config(constants)
+    if config.READ_FORMAT == "imgstore" and IMGSTORE_ENABLED:
+        return os.path.join(project_path.split(os.path.sep)[0], STORE_MD_FILENAME)
+    if config.READ_FORMAT == "opencv":
+        return os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
+    
 
 class IdTrackerProject(object):
 
@@ -28,7 +45,6 @@ class IdTrackerProject(object):
             return res
         else:
             # Load an idtracker project
-
             blobs_path  = os.path.join(project_path, 'preprocessing', 'blobs_collection_no_gaps.npy')
             if not os.path.exists(blobs_path):
                 blobs_path = os.path.join(project_path, 'preprocessing', 'blobs_collection.npy')
@@ -40,7 +56,8 @@ class IdTrackerProject(object):
 
                 video = self.create_video()
                 video.multiple_files = idtracker_videoobj.open_multiple_files
-                video.filepath = os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
+                filepath = build_video_path(project_path, idtracker_videoobj)
+                video.filepath = filepath
 
                 obj = video.create_idtrackerai_object()
                 obj.load_from_idtrackerai(project_path, idtracker_videoobj)
