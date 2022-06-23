@@ -10,7 +10,7 @@ with open(os.path.join(os.path.dirname(__file__), 'pythonvideoannotator_module_i
 
 
 setup(
-	name='Python video annotator - module - IdTrackerAI',
+	name='Python video annotator - module - IdTrackerAI-shaliulab',
 	version=version,
 	description="""""",
 	author=['Ricardo Ribeiro'],
