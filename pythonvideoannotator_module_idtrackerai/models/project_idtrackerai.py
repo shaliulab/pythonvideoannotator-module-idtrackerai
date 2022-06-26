@@ -13,7 +13,10 @@ def build_video_path(project_path, idtracker_videoobj):
 
     config=load_config(constants)
     if config.READ_FORMAT == "imgstore" and IMGSTORE_ENABLED:
-        return os.path.join(project_path.split(os.path.sep)[0], STORE_MD_FILENAME)
+        path=os.path.join("..", STORE_MD_FILENAME)
+        # path=os.path.join(project_path.split(os.path.sep)[0], STORE_MD_FILENAME)
+        assert os.path.exists(path)
+        return path
     if config.READ_FORMAT == "opencv":
         return os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
     

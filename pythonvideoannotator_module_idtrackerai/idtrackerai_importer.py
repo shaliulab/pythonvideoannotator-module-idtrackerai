@@ -28,6 +28,8 @@ def import_idtrackerai_project(project, project_path, progress_event=None):
 
     video = project.create_video()
     video.filepath = os.path.join(project_path, '..',videofile)
+    assert os.path.exists(video.filepath)
+     
 
     objs = {}
     paths = {}

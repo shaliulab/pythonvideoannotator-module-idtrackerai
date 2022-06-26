@@ -1,6 +1,7 @@
 import time, copy, numpy as np, os, logging
+import warnings
 from confapp import conf, load_config
-
+import tqdm
 try:
     import sys
 
@@ -158,7 +159,7 @@ class IdtrackeraiObjectIO(object):
         logger.info("Connecting list of blobs...")
         self.list_of_blobs.compute_overlapping_between_subsequent_frames()
         logger.info("List of blobs connected")
-        self.align_list_of_blobs()
+        if IMGSTORE_ENABLED: self.align_list_of_blobs()
         logger.info("Loading fragments...")
         path = os.path.join(project_path, "preprocessing", "fragments.npy")
         if (
@@ -177,6 +178,71 @@ class IdtrackeraiObjectIO(object):
         )
 
 
+    @staticmethod
+    def find_frame_number(index, ft):
+        """
+        Given a frame time, return the frame number
+        of the first frame after that in the index
+        """
+        # NOTE:
+        # This is more efficient than the commented code below because
+        # this skips the "ORDER BY" SQL statement, which is very slow
+        # In this way, we dont need the ORDER BY statement because we take
+        # advantage of the fact that the frame times are already ordered
+        
+        # Here we look for the first frame_number in the master store that is ahead of the passed frame time
+        # (from the selected or delta store) and we subtract one from it
+        # to get the first one in the past instead of the future
+        cur = index._conn.cursor()
+        cmd="SELECT * from frames WHERE (frame_time - ?) >= 0 LIMIT 1;"
+        cur.execute(cmd, (ft,))
+        data = cur.fetchone()
+        # TODO Check data
+        chunk, frame_idx, frame_number, frame_time = data
+        return frame_number
+
+
+    def _align_blobs(self, master_index, frame_numbers_matching, frame_times_matching, frame_numbers_master, start_of_data, end_of_data, frame_min, frame_max):
+             
+        for i in tqdm.tqdm(frame_numbers_matching[:start_of_data], desc="Generating index for blob alignment ..."):
+            frame_numbers_master.append(int(frame_min))
+
+        # TODO
+        # # This is parallelizable?
+        for ft in tqdm.tqdm(frame_times_matching[start_of_data:end_of_data], desc="Generating index for blob alignment ..."):
+            frame_number=self.find_frame_number(master_index, ft)
+            target_frame_number = int(max(0, frame_number-1))
+            frame_numbers_master.append(target_frame_number)
+            # try:
+            #     chunk, frame_idx, frame_number, frame_time = index.find_all(
+            #         what="frame_time",
+            #         value=frame_times_matching[i],
+            #         exact_only=False,
+            #         past=True,
+            #         future=False,
+            #     )
+            #     # print(f"{frame_time_delta} -> {frame_time}")
+
+            # except IndexError as error:
+            #     if error.args[0].startswith("Cannot find frame_time set to"):
+            #         warnings.warn(error.args[0])
+            #         continue
+            #     else:
+            #         import ipdb; ipdb.set_trace()
+
+        for i in tqdm.tqdm(frame_numbers_matching[end_of_data:], desc="Generating index for blob alignment ..."):
+            frame_numbers_master.append(int(frame_max))
+            
+        aligned_blobs=[]
+        for frame_number in tqdm.tqdm(frame_numbers_master, desc="Aligning blobs"):
+            if len(self.list_of_blobs.blobs_in_video) <= frame_number:
+                frame_number = len(self.list_of_blobs.blobs_in_video)
+            aligned_blobs.append(self.list_of_blobs.blobs_in_video[frame_number-1])
+
+
+        return aligned_blobs
+
+
     def align_list_of_blobs(self):
         """
         This method takes the blobs_in_video and duplicates its elements
@@ -184,44 +250,83 @@ class IdtrackeraiObjectIO(object):
         number of frames of the selected store
         (which is supposed to have a higher framerate)
         """
-        
+
+
         config = load_config(imgstore.constants)
-        import ipdb; ipdb.set_trace()
+        cap=imgstore.interface.VideoCapture(
+            self.video_object.video_path
+        )
 
-        if IMGSTORE_ENABLED:
-            cap=imgstore.interface.VideoCapture(
-                self.video_object.video_path
-            )
+        if getattr(config, "MULTI_STORE_ENABLED", False):
+            cap.select_store(config.SELECTED_STORE)            
+        
+            frame_numbers_master=[]
+            metadata=cap._selected.get_frame_metadata()
+            frame_numbers = metadata["frame_number"]
+            frame_times = metadata["frame_time"]
+            index=cap._master._index
 
-            if getattr(config, "MULTI_STORE_ENABLED", False):
-                cap.select_store(config.SELECTED_STORE)            
+            logger.info("Trimming delta index ")
+            frame_min = index._summary("frame_min")
+            frame_max = index._summary("frame_max")
+            frame_time_min = index._summary("frame_time_min")
+            frame_time_max = index._summary("frame_time_max")
+            indices = [i for i, ft in enumerate(frame_times) if ft >= frame_time_min and ft <= frame_time_max]
+            # we assume the frame_times are sorted in increasing manner
+            # the indices indices are also sorted
+            frame_times_matching = []
+            frame_numbers_matching = []
             
-                frame_numbers=[]
-                metadata=cap._selected._frame_metadata
-                index=cap._master._index
+            for i in tqdm.tqdm(range(len(frame_times)), desc="Trimming ..."):
+                if i < indices[0]:
+                    frame_times_matching.append(frame_time_min)
+                    frame_numbers_matching.append(frame_min)
+                elif i > indices[-1]:
+                    frame_times_matching.append(frame_time_max)
+                    frame_numbers_matching.append(frame_max)
+                else:
+                    frame_times_matching.append(frame_times[i])
+                    frame_numbers_matching.append(frame_numbers[i])
+                    
+            logger.info("Done")
+            start_of_data = self.find_frame_number(cap._selected._index, index.get_chunk_metadata(conf.CHUNK)["frame_time"][0])
+            end_of_data = self.find_frame_number(cap._selected._index, index.get_chunk_metadata(conf.CHUNK)["frame_time"][-1])
 
-                # TODO
-                # This is parallelizable?
-                for i, row in metadata.iterrows():
-                    frame_number_delta = row["frame_number"]
-                    frame_time_delta = row["frame_time"]
-                    chunk, frame_idx, frame_number, frame_time = index.find_all(
-                        what="frame_time",
-                        value=frame_time_delta,
-                        exact_only=False,
-                        past=True,
-                        future=False,
-                    )
-                    frame_numbers.append(frame_number)
 
-                aligned_blobs=[]               
-                for frame_number in frame_numbers:
-                    aligned_blobs.append(self.list_of_blobs.blobs_in_video[frame_number])
-                
-                self.list_of_blobs.blobs_in_video = aligned_blobs
+            print(f"Starting frame: {start_of_data}, Ending frame {end_of_data}")
+            # aligned_blobs = self._align_blobs(index, frame_numbers_matching, frame_times_matching, frame_numbers_master, start_of_data, end_of_data, frame_min, frame_max)
 
-            else:
-                pass
+
+            # crossindex=cap._crossindex.loc[np.bitwise_and(
+            #     cap._crossindex[("selected", "frame_time")] >= cap._crossindex.loc[0, ("master", "frame_time")],
+            #     cap._crossindex[("selected", "frame_time")] <= cap._crossindex.loc[cap._crossindex.index[-1], ("master", "frame_time")]
+            # )]
+            
+            aligned_blobs=[]
+            warned=False
+            
+            # number_of_frames = cap.crossindex.get_number_of_frames("selected")
+            rows = cap.crossindex.get_all_master_fn()
+
+            # for selected_fn in tqdm.tqdm(range(number_of_frames), desc="Aligning blobs"):
+            for row in tqdm.tqdm(rows, desc="Aligning blobs"):
+                try:
+                    # master_fn = cap.crossindex.find_master_fn(selected_fn)
+                    master_fn=row[0]
+                    aligned_blobs.append(self.list_of_blobs.blobs_in_video[master_fn])
+                except IndexError:
+                    # TODO
+                    # Figure out why the crossindex has a number of rows equal to frame_times (expected)
+                    # but the highest frame number is the length of the original blobs in video,
+                    # which is unexpected since it should be that - 1 (because the frame numbers are 0 indexed)
+                    aligned_blobs.append([])
+                    if not warned:
+                        warnings.warn("Some frames from the index have been ignored", stacklevel=2)
+                        warned=True
+
+            assert len(aligned_blobs) == len(frame_times)
+            self.list_of_blobs.blobs_in_video = aligned_blobs
 
         else:
             pass
+
