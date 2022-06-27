@@ -6,7 +6,7 @@ try:
     import sys
 
     sys.path.append(os.getcwd())
-    import local_settings
+    import local_settings # type: ignore
 
     conf += local_settings
 except Exception as e:
@@ -254,7 +254,8 @@ class IdtrackeraiObjectIO(object):
 
         config = load_config(imgstore.constants)
         cap=imgstore.interface.VideoCapture(
-            self.video_object.video_path
+            self.video_object.video_path,
+            chunk=self.video_object._chunk
         )
 
         if getattr(config, "MULTI_STORE_ENABLED", False):
@@ -289,8 +290,8 @@ class IdtrackeraiObjectIO(object):
                     frame_numbers_matching.append(frame_numbers[i])
                     
             logger.info("Done")
-            start_of_data = self.find_frame_number(cap._selected._index, index.get_chunk_metadata(conf.CHUNK)["frame_time"][0])
-            end_of_data = self.find_frame_number(cap._selected._index, index.get_chunk_metadata(conf.CHUNK)["frame_time"][-1])
+            start_of_data = self.find_frame_number(cap._selected._index, index.get_chunk_metadata(self.video_object._chunk)["frame_time"][0])
+            end_of_data = self.find_frame_number(cap._selected._index, index.get_chunk_metadata(self.video_object._chunk)["frame_time"][-1])
 
 
             print(f"Starting frame: {start_of_data}, Ending frame {end_of_data}")
