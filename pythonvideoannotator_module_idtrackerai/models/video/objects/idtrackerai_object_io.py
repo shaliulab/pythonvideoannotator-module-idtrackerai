@@ -213,22 +213,6 @@ class IdtrackeraiObjectIO(object):
             frame_number=self.find_frame_number(master_index, ft)
             target_frame_number = int(max(0, frame_number-1))
             frame_numbers_master.append(target_frame_number)
-            # try:
-            #     chunk, frame_idx, frame_number, frame_time = index.find_all(
-            #         what="frame_time",
-            #         value=frame_times_matching[i],
-            #         exact_only=False,
-            #         past=True,
-            #         future=False,
-            #     )
-            #     # print(f"{frame_time_delta} -> {frame_time}")
-
-            # except IndexError as error:
-            #     if error.args[0].startswith("Cannot find frame_time set to"):
-            #         warnings.warn(error.args[0])
-            #         continue
-            #     else:
-            #         import ipdb; ipdb.set_trace()
 
         for i in tqdm.tqdm(frame_numbers_matching[end_of_data:], desc="Generating index for blob alignment ..."):
             frame_numbers_master.append(int(frame_max))

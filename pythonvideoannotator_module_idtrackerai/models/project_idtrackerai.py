@@ -1,8 +1,9 @@
-from modulefinder import Module
+import warnings
 import os, numpy as np
 try:
     from imgstore.constants import STORE_MD_FILENAME
     IMGSTORE_ENABLED=True
+
 except ModuleNotFoundError:
     IMGSTORE_ENABLED=False
 
@@ -18,7 +19,14 @@ def build_video_path(project_path, idtracker_videoobj):
         assert os.path.exists(path)
         return path
     if config.READ_FORMAT == "opencv":
-        return os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
+        path=os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
+        while not os.path.exists(path):
+            project_path=os.path.join(project_path, '..')
+            path=os.path.join( project_path, '..', os.path.basename(idtracker_videoobj._video_path) )
+            warnings.warn("Looking for video one folder up -> {path}")
+        return path
+
+
     
 
 class IdTrackerProject(object):
@@ -60,7 +68,7 @@ class IdTrackerProject(object):
                 video = self.create_video()
                 video.multiple_files = idtracker_videoobj.open_multiple_files
                 filepath = build_video_path(project_path, idtracker_videoobj)
-                video.filepath = filepath
+                video.filepath = (filepath, getattr(idtracker_videoobj, "_chunk", None))
 
                 obj = video.create_idtrackerai_object()
                 obj.load_from_idtrackerai(project_path, idtracker_videoobj)
