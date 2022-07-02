@@ -157,7 +157,7 @@ class IdtrackeraiObjectIO(object):
         self.list_of_blobs = np.load(path, allow_pickle=True).item()
         logger.info("List of blobs loaded")
         logger.info("Connecting list of blobs...")
-        self.list_of_blobs.compute_overlapping_between_subsequent_frames()
+        self.list_of_blobs.reconnect_from_cache()
         logger.info("List of blobs connected")
         if IMGSTORE_ENABLED: self.align_list_of_blobs()
         logger.info("Loading fragments...")
