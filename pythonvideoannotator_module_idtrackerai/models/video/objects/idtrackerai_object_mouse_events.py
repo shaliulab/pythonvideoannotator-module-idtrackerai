@@ -1,6 +1,11 @@
 import math, logging
 
 logger = logging.getLogger(__name__)
+from confapp import load_config
+import pythonvideoannotator_module_idtrackerai.constants
+config=load_config(pythonvideoannotator_module_idtrackerai.constants)
+
+
 
 class SelectedBlob(object):
     """
@@ -38,7 +43,11 @@ class IdtrackeraiObjectMouseEvents(object):
         :param int y: Y coordinate.
         """
 
-        frame_index = self.mainwindow.timeline.value
+        if config.FRAMES_ARE_ZERO_INDEXED:
+            frame_index = self.mainwindow.timeline.value+1
+        else:
+            frame_index = self.mainwindow.timeline.value
+
         if not self._add_centroidchk.value:
 
             selected = False
