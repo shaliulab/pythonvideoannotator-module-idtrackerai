@@ -145,13 +145,21 @@ class IdtrackeraiObjectIO(object):
         video_object.update_paths(vidobj_path)
         logger.info("Paths updated")
 
+        if conf.TRY_TO_LOAD_FROM_NO_GAPS:
         path = os.path.join(
             project_path, "preprocessing", "blobs_collection_no_gaps.npy"
         )
+
         if not os.path.exists(path):
+                warnings.warn(f"{path} does not exist")
             path = os.path.join(
                 project_path, "preprocessing", "blobs_collection.npy"
             )
+        else:
+                path = os.path.join(
+                    project_path, "preprocessing", "blobs_collection.npy"
+                )
+
 
         logger.info("Loading list of blobs...")
         self.list_of_blobs = np.load(path, allow_pickle=True).item()
