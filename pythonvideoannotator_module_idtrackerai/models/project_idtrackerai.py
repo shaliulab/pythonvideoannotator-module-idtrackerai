@@ -79,3 +79,6 @@ class IdTrackerProject(object):
 
                 self.mainwindow.player.video_index = obj.get_first_frame()
                 self.mainwindow.player.call_next_frame()
+
+            else:
+                warnings.warn(f"Data not found: {blobs_path}, {vidobj_path}")

@@ -3,6 +3,7 @@ import math, logging
 logger = logging.getLogger(__name__)
 from confapp import load_config
 import pythonvideoannotator_module_idtrackerai.constants
+from pythonvideoannotator_module_idtrackerai.utils import notify_propagation
 config=load_config(pythonvideoannotator_module_idtrackerai.constants)
 
 
@@ -26,7 +27,6 @@ class SelectedBlob(object):
 
 class IdtrackeraiObjectMouseEvents(object):
 
-    RADIUS_TO_SELECT_BLOB = 10
 
     def __init__(self):
 
@@ -68,7 +68,7 @@ class IdtrackeraiObjectMouseEvents(object):
                 for identity, p1 in zip(blob.final_identities, blob.final_centroids_full_resolution):
 
                     # check if which blob was selected
-                    if math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)<self.RADIUS_TO_SELECT_BLOB:
+                    if math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)< config.RADIUS_TO_SELECT_BLOB:
 
                         self.mainwindow.player.stop()
 
@@ -118,17 +118,28 @@ class IdtrackeraiObjectMouseEvents(object):
             centroid = self.selected.position
 
             # ask the new blob identity
-            new_blob_identity = self.input_int(
+            new_blob_identity_blocked = self.input_text(
                 'Type in the new identity',
                 title='New identity',
-                default=identity if identity is not None else 0
+                default=str(identity) if identity is not None else "0"
             )
 
+            full_set = set([str(e) for e in list(range(10))] + [";"])
+
             # Update only if the new identity is different from the old one.
-            if new_blob_identity is not None:
+            if new_blob_identity_blocked is not None:
+                assert set(new_blob_identity_blocked).union(full_set) == full_set
                 try:
+                    new_blob_identity = int(new_blob_identity_blocked.replace(";", ""))
                     blob.update_identity(identity, new_blob_identity, centroid)
-                    blob.propagate_identity(identity, new_blob_identity, centroid)
+                    most_past_blob, most_future_blob = blob.propagate_identity(identity, new_blob_identity_blocked, centroid)
+                    n_past = blob.frame_number  - most_past_blob.frame_number
+                    n_future = most_future_blob.frame_number -  blob.frame_number
+                    
+                    if config.EXTRA_FUNCTIONS:
+                        notify_propagation(n_past, n_future)
+
+
                 except Exception as e:
                     logger.debug(str(e), exc_info=True)
                     self.warning(str(e), 'Error')

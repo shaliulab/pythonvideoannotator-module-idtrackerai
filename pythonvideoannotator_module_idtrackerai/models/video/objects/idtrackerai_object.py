@@ -19,6 +19,12 @@ from pythonvideoannotator_models_gui.models.imodel_gui import IModelGUI
 
 from pythonvideoannotator_module_idtrackerai import settings
 from idtrackerai.tracker.assign_them_all import close_trajectories_gaps
+from confapp import conf, load_config
+from pythonvideoannotator_module_idtrackerai.utils import notify_propagation
+import pythonvideoannotator_module_idtrackerai
+config=load_config(pythonvideoannotator_module_idtrackerai.constants)
+
+
 
 
 logger = logging.getLogger(__name__)
@@ -496,6 +502,14 @@ class IdtrackeraiObject(
         elif key == conf.SHORT_KEYS["Go to previous crossing."]:
             self.__jump2previous_crossing()
 
+        # Jump to the previous ok frame.
+        elif key == conf.SHORT_KEYS["Go to previous ok frame."]:
+            self.__jump2previous_ok_frame()
+
+        # Jump to the previous ok frame.
+        elif key == conf.SHORT_KEYS["Go to next ok frame."]:
+            self.__jump2next_ok_frame()
+
         # Check the add centroid check box
         elif key == conf.SHORT_KEYS["Check/Uncheck add centroid."]:
             self.__check_uncheck_add_centroid_box()
@@ -522,16 +536,50 @@ class IdtrackeraiObject(
             else:
                 self._add_blobchk.value = True
 
+
+    def __jump2previous_ok_frame(self):
+        curr_frame = self.mainwindow.timeline.value
+        if config.FRAMES_ARE_ZERO_INDEXED:
+            curr_frame+=1
+
+        next_frame = self.list_of_blobs.next_frame_to_validate(
+            curr_frame if curr_frame else 1, "past", self.video_object._user_defined_parameters["number_of_animals"], must_validate=False
+        )
+        # logger.debug('previous frame: {0}'.format(next_frame))
+
+        if next_frame is not None:
+            self.mainwindow.timeline.value = next_frame  
+
     def __jump2previous_crossing(self):
         """
         Jump to previous crossing.
         :return:
         """
         curr_frame = self.mainwindow.timeline.value
+        if config.FRAMES_ARE_ZERO_INDEXED:
+            curr_frame+=1
+
         next_frame = self.list_of_blobs.next_frame_to_validate(
-            curr_frame if curr_frame else 1, "past"
+            curr_frame if curr_frame else 1, "past", self.video_object._user_defined_parameters["number_of_animals"], must_validate=True
         )
         # logger.debug('previous frame: {0}'.format(next_frame))
+
+        if next_frame is not None:
+            self.mainwindow.timeline.value = next_frame
+
+
+    def __jump2next_ok_frame(self):
+        """
+        Jump to the next crossing
+        :return:
+        """
+        curr_frame = self.mainwindow.timeline.value
+        if config.FRAMES_ARE_ZERO_INDEXED:
+            curr_frame+=1
+        next_frame = self.list_of_blobs.next_frame_to_validate(
+            curr_frame if curr_frame else 1, "future", self.video_object._user_defined_parameters["number_of_animals"], must_validate=False
+        )
+        # logger.debug('next frame: {0}'.format(next_frame))
 
         if next_frame is not None:
             self.mainwindow.timeline.value = next_frame
@@ -542,8 +590,10 @@ class IdtrackeraiObject(
         :return:
         """
         curr_frame = self.mainwindow.timeline.value
+        if config.FRAMES_ARE_ZERO_INDEXED:
+            curr_frame+=1
         next_frame = self.list_of_blobs.next_frame_to_validate(
-            curr_frame if curr_frame else 1, "future"
+            curr_frame if curr_frame else 1, "future",  self.video_object._user_defined_parameters["number_of_animals"], must_validate=True
         )
         # logger.debug('next frame: {0}'.format(next_frame))
 
