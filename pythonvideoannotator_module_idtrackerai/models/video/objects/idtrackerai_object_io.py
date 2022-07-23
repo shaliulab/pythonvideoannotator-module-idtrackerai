@@ -16,6 +16,8 @@ except Exception as e:
 from datetime import datetime
 from idtrackerai.utils.py_utils import get_spaced_colors_util
 from idtrackerai.tracker.get_trajectories import produce_output_dict
+from idtrackerai.trajectories import save_trajectories
+
 from idtrackerai.tracker.trajectories_to_csv import (
     convert_trajectories_file_to_csv_and_json,
 )
@@ -69,7 +71,16 @@ class IdtrackeraiObjectIO(object):
         )
         logger.info("Saving trajectories without gaps...")
         os.makedirs(os.path.dirname(trajectories_wo_gaps_file), exist_ok=True)
-        np.save(trajectories_wo_gaps_file, trajectories_wo_gaps)
+        # NOTE
+        # trajectories are saved here
+        # np.save(trajectories_wo_gaps_file, trajectories_wo_gaps)          
+        save_trajectories(
+            trajectories_wo_gaps_file,
+            trajectories_wo_gaps,
+            start=self.list_of_blobs._start_end_with_blobs[0],
+            end=self.list_of_blobs._start_end_with_blobs[1]+1,
+        )
+
         if conf.CONVERT_TRAJECTORIES_DICT_TO_CSV_AND_JSON:
             logger.info("Saving trajectories in csv format...")
             convert_trajectories_file_to_csv_and_json(
@@ -86,9 +97,19 @@ class IdtrackeraiObjectIO(object):
         trajectories = produce_output_dict(
             self.list_of_blobs.blobs_in_video, self.video_object
         )
-        self.list_of_blobs.align(self.video_object)
         logger.info("Saving trajectories...")
-        np.save(trajectories_file, trajectories)
+        # NOTE
+        # trajectories are saved here
+        # np.save(trajectories_file, trajectories)
+        save_trajectories(
+            trajectories_file, trajectories,
+            start=self.list_of_blobs._start_end_with_blobs[0],
+            end=self.list_of_blobs._start_end_with_blobs[1]+1,
+        )
+
+
+        self.list_of_blobs.align(self.video_object)
+
         if conf.CONVERT_TRAJECTORIES_DICT_TO_CSV_AND_JSON:
             logger.info("Saving trajectories in csv format...")
             convert_trajectories_file_to_csv_and_json(trajectories_file)

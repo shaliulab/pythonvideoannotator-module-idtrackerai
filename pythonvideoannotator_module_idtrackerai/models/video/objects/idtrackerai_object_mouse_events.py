@@ -132,6 +132,7 @@ class IdtrackeraiObjectMouseEvents(object):
                 try:
                     new_blob_identity = int(new_blob_identity_blocked.replace(";", ""))
                     blob.update_identity(identity, new_blob_identity, centroid)
+                    blob._is_directly_annotated=True
                     most_past_blob, most_future_blob = blob.propagate_identity(identity, new_blob_identity_blocked, centroid)
                     n_past = blob.frame_number  - most_past_blob.frame_number
                     n_future = most_future_blob.frame_number -  blob.frame_number
