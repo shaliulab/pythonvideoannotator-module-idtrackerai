@@ -8,11 +8,10 @@ except ModuleNotFoundError:
     IMGSTORE_ENABLED=False
 
 from pythonvideoannotator_module_idtrackerai import constants
-from confapp import load_config
+from confapp import conf as config
 
 def build_video_path(project_path, idtracker_videoobj):
 
-    config=load_config(constants)
     if config.READ_FORMAT == "imgstore" and IMGSTORE_ENABLED:
         path=os.path.join("..", STORE_MD_FILENAME)
         # path=os.path.join(project_path.split(os.path.sep)[0], STORE_MD_FILENAME)

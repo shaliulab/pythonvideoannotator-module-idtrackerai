@@ -1,10 +1,9 @@
 import math, logging
 
 logger = logging.getLogger(__name__)
-from confapp import load_config
+from confapp import conf 
 import pythonvideoannotator_module_idtrackerai.constants
 from pythonvideoannotator_module_idtrackerai.utils import notify_propagation
-config=load_config(pythonvideoannotator_module_idtrackerai.constants)
 
 
 
@@ -43,7 +42,7 @@ class IdtrackeraiObjectMouseEvents(object):
         :param int y: Y coordinate.
         """
 
-        if config.FRAMES_ARE_ZERO_INDEXED:
+        if conf.FRAMES_ARE_ZERO_INDEXED:
             frame_index = self.mainwindow.timeline.value+1
         else:
             frame_index = self.mainwindow.timeline.value
@@ -68,7 +67,7 @@ class IdtrackeraiObjectMouseEvents(object):
                 for identity, p1 in zip(blob.final_identities, blob.final_centroids_full_resolution):
 
                     # check if which blob was selected
-                    if math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)< config.RADIUS_TO_SELECT_BLOB:
+                    if math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)< conf.RADIUS_TO_SELECT_BLOB:
 
                         self.mainwindow.player.stop()
 
@@ -137,7 +136,7 @@ class IdtrackeraiObjectMouseEvents(object):
                     n_past = blob.frame_number  - most_past_blob.frame_number
                     n_future = most_future_blob.frame_number -  blob.frame_number
                     
-                    if config.EXTRA_FUNCTIONS:
+                    if conf.EXTRA_FUNCTIONS:
                         notify_propagation(n_past, n_future)
 
 

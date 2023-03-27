@@ -2,7 +2,13 @@ import numpy as np, os, sys
 
 import sys
 
+from confapp import conf
+try:
+    import local_settings # type: ignore
+    conf += local_settings
 
+except:
+    pass
 
 
 def import_idtrackerai_project(project, project_path, progress_event=None):
@@ -13,10 +19,13 @@ def import_idtrackerai_project(project, project_path, progress_event=None):
     :param func progress_event: Function to update the progress. func(progress_count, max_count=None)
     :return:
     """
-
-    blobs_path = os.path.join(project_path, 'preprocessing', 'blobs_collection_no_gaps.npy')
-    if not os.path.exists(blobs_path):
-        blobs_path = os.path.join(project_path, 'preprocessing', 'blobs_collection.npy')
+    blobs_path=None
+    if getattr(conf, "BLOBS_COLLECTION", None) is not None:
+        blobs_path  = os.path.join(project_path, 'preprocessing', conf.BLOBS_COLLECTION)
+    if blobs_path is None or not os.path.exists(blobs_path):
+        blobs_path = os.path.join(project_path, 'preprocessing', 'blobs_collection_no_gaps.npy')
+        if not os.path.exists(blobs_path):
+            blobs_path = os.path.join(project_path, 'preprocessing', 'blobs_collection.npy')
     vidobj_path = os.path.join(project_path, 'video_object.npy')
 
     b = np.load(blobs_path, allow_pickle=True).item()

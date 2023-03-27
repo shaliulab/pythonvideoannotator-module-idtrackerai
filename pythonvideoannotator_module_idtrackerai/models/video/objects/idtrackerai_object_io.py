@@ -1,6 +1,6 @@
 import time, copy, numpy as np, os, logging
 import warnings
-from confapp import conf, load_config
+from confapp import conf
 import tqdm
 try:
     import sys
@@ -162,7 +162,12 @@ class IdtrackeraiObjectIO(object):
         video_object.update_paths(vidobj_path)
         logger.info("Paths updated")
         
-        if conf.TRY_TO_LOAD_FROM_NO_GAPS:
+        
+        if getattr(conf, "BLOBS_COLLECTION", None) is not None:
+            path = os.path.join(
+                project_path, "preprocessing", conf.BLOBS_COLLECTION
+            )
+        elif conf.TRY_TO_LOAD_FROM_NO_GAPS:
             path = os.path.join(
                 project_path, "preprocessing", "blobs_collection_no_gaps.npy"
             )
@@ -178,7 +183,7 @@ class IdtrackeraiObjectIO(object):
                 )
 
 
-        logger.info("Loading list of blobs...")
+        logger.info(f"Loading list of blobs from {path}...")
         self.list_of_blobs = np.load(path, allow_pickle=True).item()
         logger.info("List of blobs loaded")
         logger.info("Connecting list of blobs...")
@@ -192,8 +197,8 @@ class IdtrackeraiObjectIO(object):
         path = os.path.join(project_path, "preprocessing", "fragments.npy")
         if (
             not os.path.exists(path)
-            and self.video_object.user_defined_parameters["number_of_animals"]
-            == 1
+            #and self.video_object.user_defined_parameters["number_of_animals"]
+            #== 1
         ):
             self.list_of_framents = None
             logger.info("Fragments did not exist")

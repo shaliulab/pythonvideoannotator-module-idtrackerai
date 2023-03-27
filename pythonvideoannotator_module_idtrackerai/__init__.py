@@ -1,5 +1,8 @@
+import pyforms
 import logging
 from confapp import conf
+
+print(conf._modules)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(conf.APP_LOG_HANDLER_LEVEL)
